@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Log = require('./logSchema');
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 const events = [
   { event_type: 'auth_failure', severity: 'high', user: 'admin', ip: '192.168.1.105', location: 'Mumbai, IN', details: '5 failed SSH login attempts in 60 seconds from same IP' },

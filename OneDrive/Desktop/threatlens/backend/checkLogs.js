@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const Log = require('./logSchema');
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 
 mongoose.connect(process.env.MONGODB_URI).then(async () => {
   const withEmbedding = await Log.countDocuments({ embedding: { $not: { $size: 0 } } });
