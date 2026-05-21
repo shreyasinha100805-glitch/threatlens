@@ -1,16 +1,10 @@
-const { GoogleGenAI } = require('@google/genai');
 const { queryLogs, semanticSearch, getIpReputation, suggestRemediation } = require('./tools');
+const { createGoogleGenAI } = require('./genaiClient');
 require('dotenv').config({ quiet: true });
 
 const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
-const LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'global';
 
-const ai = new GoogleGenAI({
-  enterprise: true,
-  project: process.env.GOOGLE_CLOUD_PROJECT,
-  location: LOCATION,
-  apiVersion: 'v1'
-});
+const ai = createGoogleGenAI();
 
 const toolDefinitions = [
   {

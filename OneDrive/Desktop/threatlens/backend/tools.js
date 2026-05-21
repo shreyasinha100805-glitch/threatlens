@@ -1,16 +1,10 @@
 const Log = require('./logSchema');
-const { GoogleGenAI } = require('@google/genai');
+const { createGoogleGenAI } = require('./genaiClient');
 require('dotenv').config({ quiet: true });
 
-const LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'global';
 const EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
 
-const ai = new GoogleGenAI({ 
-  enterprise: true, 
-  project: process.env.GOOGLE_CLOUD_PROJECT, 
-  location: LOCATION,
-  apiVersion: 'v1'
-});
+const ai = createGoogleGenAI();
 
 // Tool 1: Query logs by filters
 async function queryLogs({ severity, event_type, limit = 10 }) {

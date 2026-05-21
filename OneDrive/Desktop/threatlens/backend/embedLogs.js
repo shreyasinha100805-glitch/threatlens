@@ -1,17 +1,11 @@
 const mongoose = require('mongoose');
-const { GoogleGenAI } = require('@google/genai');
+const { createGoogleGenAI } = require('./genaiClient');
 const Log = require('./logSchema');
 require('dotenv').config({ quiet: true });
 
-const LOCATION = process.env.GOOGLE_CLOUD_LOCATION || 'global';
 const EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
 
-const ai = new GoogleGenAI({
-  enterprise: true,
-  project: process.env.GOOGLE_CLOUD_PROJECT,
-  location: LOCATION,
-  apiVersion: 'v1'
-});
+const ai = createGoogleGenAI();
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));

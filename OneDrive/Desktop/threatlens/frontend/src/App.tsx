@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
-const API = "http://localhost:8080";
+const API = process.env.REACT_APP_API_URL || "https://threatlens-backend-1063359417975.us-central1.run.app";
 
 interface Message {
   role: "user" | "assistant";
@@ -28,7 +28,7 @@ const severityColor: Record<string, string> = {
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", text: "👋 I'm ThreatLens, your AI security analyst. Ask me anything about your security logs — try 'What are the critical threats right now?' or 'Check IP 192.168.1.105'" }
+    { role: "assistant", text: "I'm ThreatLens, your AI security analyst. Ask me anything about your security logs - try 'What are the critical threats right now?' or 'Check IP 192.168.1.105'" }
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,7 +36,7 @@ export default function App() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    axios.get(`${API}/threats/recent`).then(r => setThreats(r.data));
+    axios.get(`${API}/threats/recent`).then(r => setThreats(r.data)).catch(() => setThreats([]));
   }, []);
 
   useEffect(() => {
@@ -53,8 +53,9 @@ export default function App() {
     try {
       const { data } = await axios.post(`${API}/chat`, { message: userMsg });
       setMessages(prev => [...prev, { role: "assistant", text: data.text, toolUsed: data.toolUsed }]);
-    } catch {
-      setMessages(prev => [...prev, { role: "assistant", text: "Error contacting ThreatLens backend." }]);
+    } catch (err) {
+      const detail = axios.isAxiosError(err) ? err.response?.data?.error || err.message : "Unknown error";
+      setMessages(prev => [...prev, { role: "assistant", text: `Error contacting ThreatLens backend: ${detail}` }]);
     }
     setLoading(false);
   }
@@ -65,7 +66,7 @@ export default function App() {
       {/* Sidebar */}
       <div style={{ width: 320, background: "#161b22", borderRight: "1px solid #30363d", display: "flex", flexDirection: "column" }}>
         <div style={{ padding: "16px", borderBottom: "1px solid #30363d" }}>
-          <div style={{ fontSize: 20, fontWeight: "bold", color: "#58a6ff" }}>🔐 ThreatLens</div>
+          <div style={{ fontSize: 20, fontWeight: "bold", color: "#58a6ff" }}>ThreatLens</div>
           <div style={{ fontSize: 12, color: "#8b949e", marginTop: 4 }}>AI Security Intelligence</div>
         </div>
         <div style={{ padding: "12px 16px", fontSize: 12, color: "#8b949e", borderBottom: "1px solid #30363d" }}>
@@ -107,7 +108,7 @@ export default function App() {
             <div key={i} style={{ marginBottom: 20, display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
               {m.toolUsed && (
                 <div style={{ fontSize: 10, color: "#58a6ff", marginBottom: 4 }}>
-                  🔧 Used tool: {m.toolUsed}
+                  Used tool: {m.toolUsed}
                 </div>
               )}
               <div style={{
@@ -127,7 +128,7 @@ export default function App() {
           {loading && (
             <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 20 }}>
               <div style={{ padding: "12px 16px", borderRadius: "18px 18px 18px 4px", background: "#161b22", border: "1px solid #30363d", fontSize: 14, color: "#8b949e" }}>
-                🔍 Analyzing security data...
+                Analyzing security data...
               </div>
             </div>
           )}
