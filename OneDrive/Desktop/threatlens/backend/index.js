@@ -1,8 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-const Log = require('./logSchema');
-require('dotenv').config();
+const { findLogs, getDataSource } = require('./logRepository');
+require('dotenv').config({ quiet: true });
 
 const app = express();
 
@@ -27,22 +27,47 @@ app.use(cors({
 }));
 app.use(express.json());
 
+function getClientError(err) {
+  const providerMessage = err?.message || '';
+
+  if (err?.status === 403 || /api key|permission_denied|credentials/i.test(providerMessage)) {
+    return {
+      status: 503,
+      body: {
+        error: 'ThreatLens AI credentials are not available. Remove any leaked API key from the backend environment and deploy with Vertex AI service account access, or set a newly rotated GEMINI_API_KEY.'
+      }
+    };
+  }
+
+  return {
+    status: 500,
+    body: { error: providerMessage || 'Internal server error' }
+  };
+}
+
 let mongoStatus = 'disconnected';
 let mongoError = null;
+let mongoConnectPromise = null;
 const MONGO_RETRY_MS = 30000;
 
 async function connectMongo() {
   if (!process.env.MONGODB_URI) {
     mongoStatus = 'missing MONGODB_URI';
+    mongoError = 'MONGODB_URI is not set; using bundled sample logs.';
     console.error('MONGODB_URI is not set');
     return;
   }
 
+  if (mongoose.connection.readyState === 1 || mongoConnectPromise) {
+    return mongoConnectPromise;
+  }
+
   try {
     mongoStatus = 'connecting';
-    await mongoose.connect(process.env.MONGODB_URI, {
+    mongoConnectPromise = mongoose.connect(process.env.MONGODB_URI, {
       serverSelectionTimeoutMS: 10000
     });
+    await mongoConnectPromise;
     mongoStatus = 'connected';
     mongoError = null;
     console.log('MongoDB connected');
@@ -51,6 +76,8 @@ async function connectMongo() {
     mongoError = err.message;
     console.error('MongoDB error:', err);
     setTimeout(connectMongo, MONGO_RETRY_MS);
+  } finally {
+    mongoConnectPromise = null;
   }
 }
 
@@ -72,7 +99,8 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ThreatLens backend running',
     mongo: mongoStatus,
-    mongoError
+    mongoError,
+    dataSource: getDataSource()
   });
 });
 
@@ -90,17 +118,18 @@ app.post('/chat', async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message });
+    const clientError = getClientError(err);
+    res.status(clientError.status).json(clientError.body);
   }
 });
 
 // Recent threats endpoint
 app.get('/threats/recent', async (req, res) => {
   try {
-    const logs = await Log.find({ severity: { $in: ['critical', 'high'] } })
-      .sort({ timestamp: -1 })
-      .limit(20)
-      .select('-embedding');
+    const logs = await findLogs(
+      { severity: { $in: ['critical', 'high'] } },
+      { sort: { timestamp: -1 }, limit: 20 }
+    );
     res.json(logs);
   } catch (err) {
     res.status(500).json({ error: err.message });

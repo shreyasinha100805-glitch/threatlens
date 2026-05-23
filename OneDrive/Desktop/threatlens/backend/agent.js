@@ -4,7 +4,15 @@ require('dotenv').config({ quiet: true });
 
 const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
-const ai = createGoogleGenAI();
+let ai;
+
+function getAi() {
+  if (!ai) {
+    ai = createGoogleGenAI();
+  }
+
+  return ai;
+}
 
 const toolDefinitions = [
   {
@@ -62,10 +70,18 @@ function isRetryableAiError(error) {
   return error?.status === 429 || error?.status === 500 || error?.status === 503;
 }
 
+function isAiUnavailable(error) {
+  const message = error?.message || '';
+  return isRetryableAiError(error)
+    || error?.status === 401
+    || error?.status === 403
+    || /api key|permission_denied|credentials|leaked/i.test(message);
+}
+
 async function generateContentWithRetry(request, retries = 2) {
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      return await ai.models.generateContent(request);
+      return await getAi().models.generateContent(request);
     } catch (error) {
       if (!isRetryableAiError(error) || attempt === retries) {
         throw error;
@@ -87,6 +103,11 @@ function pickFallbackTool(userMessage) {
 
   if (text.includes('critical') || text.includes('most severe') || text.includes('highest severity')) {
     return { name: 'query_logs', args: { severity: 'critical', limit: 5 } };
+  }
+
+  const ipMatch = text.match(/\b(?:\d{1,3}\.){3}\d{1,3}\b/);
+  if (ipMatch) {
+    return { name: 'get_ip_reputation', args: { ip: ipMatch[0] } };
   }
 
   return { name: 'semantic_search', args: { question: userMessage } };
@@ -172,12 +193,25 @@ async function chat(userMessage, history = []) {
       }
     });
   } catch (error) {
-    if (!isRetryableAiError(error)) {
+    if (!isAiUnavailable(error)) {
+      const fallbackTool = pickFallbackTool(userMessage);
+
+      if (fallbackTool.name !== 'semantic_search') {
+        console.warn(`Gemini is unavailable. Falling back to ${fallbackTool.name}: ${error.message}`);
+        const toolResult = await runTool(fallbackTool.name, fallbackTool.args);
+
+        return {
+          text: formatToolFallback(fallbackTool.name, toolResult),
+          toolUsed: fallbackTool.name,
+          toolResult
+        };
+      }
+
       throw error;
     }
 
     const fallbackTool = pickFallbackTool(userMessage);
-    console.warn(`Gemini is temporarily unavailable (${error.status}). Falling back to ${fallbackTool.name}.`);
+    console.warn(`Gemini is unavailable (${error.status || error.message}). Falling back to ${fallbackTool.name}.`);
     const toolResult = await runTool(fallbackTool.name, fallbackTool.args);
 
     return {
@@ -224,11 +258,11 @@ async function chat(userMessage, history = []) {
         }
       });
     } catch (error) {
-      if (!isRetryableAiError(error)) {
+      if (!isAiUnavailable(error)) {
         throw error;
       }
 
-      console.warn(`Gemini summary failed with ${error.status}. Returning a local summary from tool data.`);
+      console.warn(`Gemini summary failed with ${error.status || error.message}. Returning a local summary from tool data.`);
 
       return {
         text: formatToolFallback(toolName, toolResult),

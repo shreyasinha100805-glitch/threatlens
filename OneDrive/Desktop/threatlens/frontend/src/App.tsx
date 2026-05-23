@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
-const API = process.env.REACT_APP_API_URL || "https://threatlens-backend-1063359417975.us-central1.run.app";
+const API = process.env.REACT_APP_API_URL
+  || (process.env.NODE_ENV === "development"
+    ? "http://localhost:8080"
+    : "https://threatlens-backend-1063359417975.us-central1.run.app");
 
 interface Message {
   role: "user" | "assistant";
@@ -25,6 +28,19 @@ const severityColor: Record<string, string> = {
   medium: "#ffcc00",
   low: "#44bb44",
 };
+
+function getFriendlyError(err: unknown) {
+  const detail = axios.isAxiosError(err)
+    ? err.response?.data?.error || err.message
+    : "Unknown error";
+  const message = typeof detail === "string" ? detail : JSON.stringify(detail);
+
+  if (/api key|permission_denied|credentials|leaked/i.test(message)) {
+    return "ThreatLens AI credentials need attention. I can still answer direct log questions when the backend fallback is deployed.";
+  }
+
+  return message;
+}
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([
@@ -54,7 +70,7 @@ export default function App() {
       const { data } = await axios.post(`${API}/chat`, { message: userMsg });
       setMessages(prev => [...prev, { role: "assistant", text: data.text, toolUsed: data.toolUsed }]);
     } catch (err) {
-      const detail = axios.isAxiosError(err) ? err.response?.data?.error || err.message : "Unknown error";
+      const detail = getFriendlyError(err);
       setMessages(prev => [...prev, { role: "assistant", text: `Error contacting ThreatLens backend: ${detail}` }]);
     }
     setLoading(false);

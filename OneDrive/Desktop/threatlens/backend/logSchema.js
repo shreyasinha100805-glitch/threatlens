@@ -9,6 +9,6 @@ const logSchema = new mongoose.Schema({
   severity: String,
   details: String,
   embedding: [Number]
-});
+}, { bufferCommands: false });
 
 module.exports = mongoose.model('Log', logSchema);

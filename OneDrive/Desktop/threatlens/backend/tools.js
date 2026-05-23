@@ -1,10 +1,18 @@
-const Log = require('./logSchema');
+const { findLogs } = require('./logRepository');
 const { createGoogleGenAI } = require('./genaiClient');
 require('dotenv').config({ quiet: true });
 
 const EMBEDDING_MODEL = process.env.GEMINI_EMBEDDING_MODEL || 'text-embedding-004';
 
-const ai = createGoogleGenAI();
+let ai;
+
+function getAi() {
+  if (!ai) {
+    ai = createGoogleGenAI();
+  }
+
+  return ai;
+}
 
 // Tool 1: Query logs by filters
 async function queryLogs({ severity, event_type, limit = 10 }) {
@@ -12,26 +20,49 @@ async function queryLogs({ severity, event_type, limit = 10 }) {
   if (severity) filter.severity = severity;
   if (event_type) filter.event_type = event_type;
   
-  const logs = await Log.find(filter)
-    .sort({ timestamp: -1 })
-    .limit(limit)
-    .select('-embedding');
-  
-  return logs;
+  return findLogs(filter, { sort: { timestamp: -1 }, limit });
+}
+
+function keywordSearchLogs(question, logs) {
+  const words = question.toLowerCase().split(/\W+/).filter(Boolean);
+
+  return logs
+    .map(log => {
+      const haystack = [log.event_type, log.ip, log.user, log.location, log.severity, log.details]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      const score = words.reduce((total, word) => total + (haystack.includes(word) ? 1 : 0), 0);
+      return { log, similarity: words.length ? score / words.length : 0 };
+    })
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, 5)
+    .map(({ log, similarity }) => ({ ...log, similarity, embedding: undefined }));
 }
 
 // Tool 2: Semantic search using vector embeddings
 async function semanticSearch(question) {
-  const response = await ai.models.embedContent({
-    model: EMBEDDING_MODEL,
-    contents: question
-  });
-  const queryEmbedding = response.embeddings[0].values;
+  const logs = await findLogs({}, { includeEmbedding: true });
+  const searchableLogs = logs.filter(log => Array.isArray(log.embedding) && log.embedding.length);
 
-  const logs = await Log.find({});
+  if (searchableLogs.length === 0) {
+    return keywordSearchLogs(question, logs);
+  }
+
+  let queryEmbedding;
+  try {
+    const response = await getAi().models.embedContent({
+      model: EMBEDDING_MODEL,
+      contents: question
+    });
+    queryEmbedding = response.embeddings[0].values;
+  } catch (error) {
+    console.warn(`Embedding search unavailable. Using keyword search: ${error.message}`);
+    return keywordSearchLogs(question, logs);
+  }
   
   // Calculate cosine similarity
-  const scored = logs.map(log => {
+  const scored = searchableLogs.map(log => {
     const dot = log.embedding.reduce((sum, val, i) => sum + val * queryEmbedding[i], 0);
     const magA = Math.sqrt(log.embedding.reduce((sum, val) => sum + val * val, 0));
     const magB = Math.sqrt(queryEmbedding.reduce((sum, val) => sum + val * val, 0));
@@ -40,12 +71,16 @@ async function semanticSearch(question) {
   });
 
   scored.sort((a, b) => b.similarity - a.similarity);
-  return scored.slice(0, 5).map(s => ({ ...s.log.toObject(), similarity: s.similarity, embedding: undefined }));
+  return scored.slice(0, 5).map(s => ({
+    ...(s.log.toObject ? s.log.toObject() : s.log),
+    similarity: s.similarity,
+    embedding: undefined
+  }));
 }
 
 // Tool 3: Get IP reputation
 async function getIpReputation(ip) {
-  const logs = await Log.find({ ip }).select('-embedding').sort({ timestamp: -1 });
+  const logs = await findLogs({ ip }, { sort: { timestamp: -1 } });
   
   if (logs.length === 0) return { ip, status: 'unknown', events: [] };
 
