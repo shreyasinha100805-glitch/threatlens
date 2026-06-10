@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const { findLogs, getDataSource } = require('./logRepository');
+const { MongoDBMCPServer } = require('./mongoMCP');
 require('dotenv').config({ quiet: true });
 
 const app = express();
@@ -71,6 +72,11 @@ async function connectMongo() {
     mongoStatus = 'connected';
     mongoError = null;
     console.log('MongoDB connected');
+
+    // Initialize MongoDB MCP Server
+    const mcpServer = new MongoDBMCPServer();
+    mcpServer.connect().catch(console.error);
+    app.locals.mcpServer = mcpServer;
   } catch (err) {
     mongoStatus = 'error';
     mongoError = err.message;
@@ -114,7 +120,7 @@ app.post('/chat', async (req, res) => {
     }
 
     const { chat } = require('./agent');
-    const result = await chat(message, history || []);
+    const result = await chat(message, history || [], req.app.locals.mcpServer);
     res.json(result);
   } catch (err) {
     console.error(err);
@@ -134,6 +140,24 @@ app.get('/threats/recent', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// MCP endpoint
+app.post('/mcp/execute', async (req, res) => {
+  try {
+    const { tool, params } = req.body;
+    const mcpServer = req.app.locals.mcpServer;
+    const result = await mcpServer.executeTool(tool, params);
+    res.json({ result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// MCP tools list endpoint
+app.get('/mcp/tools', (req, res) => {
+  const mcpServer = req.app.locals.mcpServer;
+  res.json({ tools: mcpServer.getToolDefinitions() });
 });
 
 const PORT = process.env.PORT || 8080;
