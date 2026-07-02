@@ -73,23 +73,22 @@ Available MCP tools:
 ---
 
 ## 🏗️ Architecture
-User Question
-↓
-React Chat UI (Firebase Hosting)
-↓
-Node.js Backend (Google Cloud Run)
-↓
-Gemini 2.0 Flash Agent
-↓ picks one of 4 tools
-┌──────────────────────────────────┐
-│ query_logs │ semantic_search     │
-│ get_ip_rep │ suggest_remediation │
-└──────────────────────────────────┘
-↓
-MongoDB MCP Server
-↓
-MongoDB Atlas + Vector Search
-↓
+```
+threatlens/
+├── backend/
+│   ├── agent.js          # Gemini agent with tool definitions
+│   ├── tools.js          # 4 agent tools implementation
+│   ├── mongoMCP.js       # MongoDB MCP server
+│   ├── logSchema.js      # MongoDB schema
+│   ├── genaiClient.js    # Google Gen AI client
+│   ├── seed.js           # Sample security log data
+│   ├── embedLogs.js      # Generate vector embeddings
+│   ├── Dockerfile        # Cloud Run deployment
+│   └── index.js          # Express server + endpoints
+└── frontend/
+    └── src/
+        └── App.tsx       # React chat UI
+```
 ---
 
 ## 🚀 Setup
