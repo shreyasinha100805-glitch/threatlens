@@ -37,7 +37,19 @@ function keywordSearchLogs(question, logs) {
     })
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, 5)
-    .map(({ log, similarity }) => ({ ...log, similarity, embedding: undefined }));
+    .map(({ log, similarity }) => {
+      const l = log.toObject ? log.toObject() : log;
+      return {
+        event_type: l.event_type,
+        ip: l.ip,
+        user: l.user,
+        location: l.location,
+        severity: l.severity,
+        details: l.details,
+        timestamp: l.timestamp,
+        similarity
+      };
+    });
 }
 
 // Tool 2: Semantic search using vector embeddings
@@ -71,11 +83,20 @@ async function semanticSearch(question) {
   });
 
   scored.sort((a, b) => b.similarity - a.similarity);
-  return scored.slice(0, 5).map(s => ({
-    ...(s.log.toObject ? s.log.toObject() : s.log),
-    similarity: s.similarity,
-    embedding: undefined
-  }));
+  return scored.slice(0, 5).map(s => {
+  const log = s.log.toObject ? s.log.toObject() : s.log;
+  return {
+    _id: log._id,
+    event_type: log.event_type,
+    ip: log.ip,
+    user: log.user,
+    location: log.location,
+    severity: log.severity,
+    details: log.details,
+    timestamp: log.timestamp,
+    similarity: s.similarity
+  };
+});
 }
 
 // Tool 3: Get IP reputation
@@ -99,6 +120,19 @@ async function getIpReputation(ip) {
 
 // Tool 4: Suggest remediation
 async function suggestRemediation(event_type) {
+  const typeMap = {
+    ransomware: 'malware_detected',
+    malware: 'malware_detected',
+    brute_force: 'auth_failure',
+    login: 'auth_failure',
+    ssh: 'auth_failure',
+    exfiltration: 'data_exfiltration',
+    privilege: 'privilege_escalation',
+    escalation: 'privilege_escalation',
+    anomalous: 'anomalous_access',
+    suspicious: 'anomalous_access'
+  };
+  event_type = typeMap[event_type.toLowerCase()] || event_type;
   const remediations = {
     auth_failure: [
       'Enable multi-factor authentication immediately',
