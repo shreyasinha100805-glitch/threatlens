@@ -4,8 +4,12 @@
 
 [![Live Demo](https://img.shields.io/badge/Live-Demo-blue)](https://threatlens-496915.web.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Built with Gemini](https://img.shields.io/badge/Built%20with-Gemini-purple)](https://cloud.google.com/vertex-ai)
+[![MongoDB Atlas](https://img.shields.io/badge/MongoDB-Atlas-green)](https://www.mongodb.com/atlas)
 
-ThreatLens is a conversational AI security agent that lets teams query MongoDB security logs in plain English using Google Gemini and MongoDB Atlas Vector Search.
+ThreatLens is a conversational AI security intelligence agent that lets security teams query MongoDB logs in plain English using Google Gemini — detect threats, check IP reputation, and get remediation plans in seconds.
+
+---
 
 ## 🌐 Live Demo
 **[threatlens-496915.web.app](https://threatlens-496915.web.app)**
@@ -13,82 +17,87 @@ ThreatLens is a conversational AI security agent that lets teams query MongoDB s
 ## 🎥 Demo Video
 **[Watch on YouTube](https://youtu.be/twSpWMyYzes)**
 
+## 🏆 Built For
+Google Cloud Rapid Agent Hackathon 2026 — MongoDB Track
+
+---
+
 ## 🎯 What It Does
 
-Ask questions like:
-- *"What are the critical threats right now?"*
-- *"Check IP 192.168.1.105"*
-- *"What should I do about the ransomware on 192.168.1.20?"*
+| Question | What happens |
+|---|---|
+| *"What are the critical threats right now?"* | Queries MongoDB for critical/high severity events |
+| *"Check IP 192.168.1.105"* | Returns full risk score and event history |
+| *"What should I do about the ransomware?"* | Returns step-by-step remediation plan |
+| *"Any suspicious logins at odd hours?"* | Runs semantic vector search across all logs |
 
-Get instant AI-powered answers backed by real MongoDB data.
+---
 
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
 |---|---|
 | AI Agent | Google Gemini 2.0 Flash |
-| MCP Server | MongoDB MCP Protocol |
-| Database | MongoDB Atlas + Vector Search |
+| MCP Integration | MongoDB MCP Protocol Server |
+| Database | MongoDB Atlas |
+| Vector Search | MongoDB Atlas Vector Search |
+| Embeddings | Vertex AI text-embedding-004 |
 | Backend | Node.js + Express on Google Cloud Run |
 | Frontend | React + TypeScript on Firebase Hosting |
-| Embeddings | Vertex AI text-embedding-004 |
+
+---
 
 ## 🔧 4 Agent Tools
 
-| Tool | Description |
-|---|---|
-| `query_logs` | Filter logs by severity and event type |
-| `semantic_search` | Vector similarity search using AI embeddings |
-| `get_ip_reputation` | Risk scoring for any IP address |
-| `suggest_remediation` | Step-by-step response plans |
+| Tool | Description | When Used |
+|---|---|---|
+| `query_logs` | Filter logs by severity and event type | "Show me critical events" |
+| `semantic_search` | Vector similarity search using AI embeddings | "Any brute force attacks?" |
+| `get_ip_reputation` | Risk scoring for any IP address | "Check IP 10.0.0.5" |
+| `suggest_remediation` | Step-by-step response plans | "What should I do about ransomware?" |
+
+---
 
 ## 📡 MongoDB MCP Server
 
-Live MCP endpoint:
-| Layer | Technology |
-|---|---|
-| AI Agent | Google Gemini 2.0 Flash |
-| MCP Server | MongoDB MCP Protocol |
-| Database | MongoDB Atlas + Vector Search |
-| Backend | Node.js + Express on Google Cloud Run |
-| Frontend | React + TypeScript on Firebase Hosting |
-| Embeddings | Vertex AI text-embedding-004 |
+ThreatLens integrates MongoDB's MCP protocol with 4 tools:
 
-## 🔧 4 Agent Tools
-
-| Tool | Description |
-|---|---|
-| `query_logs` | Filter logs by severity and event type |
-| `semantic_search` | Vector similarity search using AI embeddings |
-| `get_ip_reputation` | Risk scoring for any IP address |
-| `suggest_remediation` | Step-by-step response plans |
-
-## 📡 MongoDB MCP Server
-Available MCP tools:
 - `find_documents` — find MongoDB documents with filters
 - `aggregate_documents` — run aggregation pipelines
 - `count_documents` — count matching documents
 - `get_collections` — list all collections
 
+MCP endpoints:
+```
+GET  /mcp/tools      — list all available MCP tools
+POST /mcp/execute    — execute a tool with parameters
+```
+
 ---
 
 ## 🏗️ Architecture
+
 ```
-threatlens/
-├── backend/
-│   ├── agent.js          # Gemini agent with tool definitions
-│   ├── tools.js          # 4 agent tools implementation
-│   ├── mongoMCP.js       # MongoDB MCP server
-│   ├── logSchema.js      # MongoDB schema
-│   ├── genaiClient.js    # Google Gen AI client
-│   ├── seed.js           # Sample security log data
-│   ├── embedLogs.js      # Generate vector embeddings
-│   ├── Dockerfile        # Cloud Run deployment
-│   └── index.js          # Express server + endpoints
-└── frontend/
-    └── src/
-        └── App.tsx       # React chat UI
+User Question
+     ↓
+React Chat UI (Firebase Hosting)
+     ↓
+Node.js Backend (Google Cloud Run)
+     ↓
+Gemini 2.0 Flash Agent
+     ↓ picks one of 4 tools
+┌─────────────────────────────────────┐
+│ query_logs  │  semantic_search      │
+│ get_ip_rep  │  suggest_remediation  │
+└─────────────────────────────────────┘
+     ↓
+MongoDB MCP Server
+     ↓
+MongoDB Atlas + Vector Search
+     ↓
+Plain English Answer
 ```
+
 ---
 
 ## 🚀 Setup
@@ -104,7 +113,6 @@ threatlens/
 cd backend
 npm install
 cp .env.example .env
-# Fill in your credentials in .env
 node index.js
 ```
 
@@ -130,6 +138,8 @@ PORT=8080
 ---
 
 ## 📁 Project Structure
+
+```
 threatlens/
 ├── backend/
 │   ├── agent.js          # Gemini agent with tool definitions
@@ -142,16 +152,21 @@ threatlens/
 │   ├── Dockerfile        # Cloud Run deployment
 │   └── index.js          # Express server + endpoints
 └── frontend/
-└── src/
-└── App.tsx       # React chat UI
+    └── src/
+        └── App.tsx       # React chat UI
+```
+
 ---
 
 ## 🔌 API Endpoints
+
+```
 GET  /health          — health check
 POST /chat            — send message to AI agent
 GET  /threats/recent  — get recent high severity events
 GET  /mcp/tools       — list MongoDB MCP tools
 POST /mcp/execute     — execute MongoDB MCP tool
+```
 
 ---
 
