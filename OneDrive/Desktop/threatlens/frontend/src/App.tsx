@@ -4,7 +4,7 @@ import axios from "axios";
 const API = process.env.REACT_APP_API_URL
   || (process.env.NODE_ENV === "development"
     ? "http://localhost:8080"
-    : "https://threatlens-backend-1063359417975.us-central1.run.app");
+    : "https://shreyasinha100805-glitch-threatlens.vercel.app");
 
 interface Message {
   role: "user" | "assistant";
@@ -123,8 +123,25 @@ export default function App() {
           {messages.map((m, i) => (
             <div key={i} style={{ marginBottom: 20, display: "flex", flexDirection: "column", alignItems: m.role === "user" ? "flex-end" : "flex-start" }}>
               {m.toolUsed && (
-                <div style={{ fontSize: 10, color: "#58a6ff", marginBottom: 4 }}>
-                  Used tool: {m.toolUsed}
+                <div style={{
+                  fontSize: 10,
+                  marginBottom: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6
+                }}>
+                  <span style={{
+                    background: m.toolUsed === 'query_logs' ? '#1f6feb' :
+                      m.toolUsed === 'semantic_search' ? '#0d9488' :
+                        m.toolUsed === 'get_ip_reputation' ? '#f59e0b' :
+                          m.toolUsed === 'suggest_remediation' ? '#10b981' : '#58a6ff',
+                    color: '#fff',
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    fontWeight: 'bold'
+                  }}>
+                    🔧 {m.toolUsed}
+                  </span>
                 </div>
               )}
               <div style={{
